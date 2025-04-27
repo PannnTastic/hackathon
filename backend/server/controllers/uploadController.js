@@ -39,11 +39,16 @@ const uploadFoto = async (req, res) => {
 
 const uploadC6 = async (req, res) => {
     try {
-        const { tps_id, dokumen } = req.body;
+        const { tps_id } = req.body;
+        const dokumen = req.file; // Assuming multer is used for file uploads
+
+        if (!dokumen) {
+            return res.status(400).json({ message: 'No C6 file uploaded.' });
+        }
 
         await db.query('INSERT INTO c6 (tps_id, dokumen, status) VALUES (?, ?, ?)', [
             tps_id,
-            dokumen,
+            dokumen.filename, // Save the filename in the database
             'menunggu',
         ]);
 

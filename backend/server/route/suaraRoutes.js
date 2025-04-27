@@ -6,7 +6,7 @@ const { authenticate, authorize } = require('../middleware/authMiddleware');
 // Input Suara
 router.post('/', authenticate, authorize(['penghitungan']), suaraController.inputSuara);
 
-// Grafik Total Suara
-router.get('/grafik', authenticate, authorize(['nasional', 'provinsi', 'kabupaten', 'kelurahan']), suaraController.grafikSuara);
+// Grafik Total Suara (no login required)
+router.get('/grafik', suaraController.grafikSuara);
 
-module.exports = router; 
+module.exports = router;

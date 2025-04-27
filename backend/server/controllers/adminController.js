@@ -3,11 +3,25 @@ const db = require('../helper/connectionDB');
 const createAdmin = async (req, res) => {
     try {
         const { username, password, nama, role } = req.body;
-        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Enforce hierarchical role-based restrictions
+        const allowedRoles = {
+            nasional: ['provinsi'],
+            provinsi: ['kabupaten'],
+            kabupaten: ['kecamatan'],
+            kecamatan: ['kelurahan'],
+            kelurahan: [], // Kelurahan cannot create any admin
+        };
+
+        if (!allowedRoles[req.user.role]?.includes(role)) {
+            return res.status(403).json({
+                message: `Access denied. ${req.user.role} can only create admins with roles: ${allowedRoles[req.user.role].join(', ')}`,
+            });
+        }
 
         await db.query(
             'INSERT INTO admin (username, password, nama, role) VALUES (?, ?, ?, ?)',
-            [username, hashedPassword, nama, role]
+            [username, password, nama, role]
         );
 
         res.status(201).json({ message: 'Admin created successfully.' });
@@ -16,7 +30,7 @@ const createAdmin = async (req, res) => {
     }
 };
 
-const getAdmins = async (req, res) => { 
+const getAdmins = async (req, res) => {
     try {
         const admins = await db.query('SELECT id, username, nama, role FROM admin');
 
@@ -29,11 +43,11 @@ const getAdmins = async (req, res) => {
 const updateAdmin = async (req, res) => {
     try {
         const { id } = req.params;
-        const { username, nama, role } = req.body;
+        const { username, password, nama, role } = req.body;
 
         await db.query(
-            'UPDATE admin SET username = ?, nama = ?, role = ? WHERE id = ?',
-            [username, nama, role, id]
+            'UPDATE admin SET username = ?, password = ?, nama = ?, role = ? WHERE id = ?',
+            [username, password, nama, role, id]
         );
 
         res.status(200).json({ message: 'Admin updated successfully.' });
