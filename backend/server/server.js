@@ -17,12 +17,6 @@ app.use(cors({
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-connectionDB();
-
-app.get('/', (req, res) => {
-    res.send('Hello World!');
-});
-
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
     }
