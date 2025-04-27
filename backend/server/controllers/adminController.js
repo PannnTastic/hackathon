@@ -6,9 +6,9 @@ const createAdmin = async (req, res) => {
 
         // Enforce hierarchical role-based restrictions
         const allowedRoles = {
-            nasional: ['provinsi'],
-            provinsi: ['kabupaten'],
-            kabupaten: ['kecamatan'],
+            nasional: ['provinsi','kabupaten','kecamatan','kelurahan'],
+            provinsi: ['kabupaten', 'kecamatan','kelurahan'],
+            kabupaten: ['kecamatan', 'kelurahan'],
             kecamatan: ['kelurahan'],
             kelurahan: [], // Kelurahan cannot create any admin
         };

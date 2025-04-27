@@ -2,11 +2,11 @@ const db = require('../helper/connectionDB');
 
 const createLaporan = async (req, res) => {
     try {
-        const { tps_id, deskripsi } = req.body;
+        const { tps_id, bukti } = req.body;
 
         await db.query(
-            'INSERT INTO laporan (tps_id, deskripsi, status) VALUES (?, ?, ?)',
-            [tps_id, deskripsi, 'menunggu']
+            'INSERT INTO laporan (tps_id, bukti) VALUES (?, ?)',
+            [tps_id, bukti]
         );
 
         res.status(201).json({ message: 'Laporan created successfully.' });

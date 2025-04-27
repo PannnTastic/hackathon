@@ -28,7 +28,7 @@ const isNasional = (req, res, next) => {
         return res.status(403).json({ message: 'Access denied. Only for nasional role.' });
     }
     next();
-}; 
+};
 
 const isProvinsi = (req, res, next) => {
     if (req.user.role !== 'provinsi') {
@@ -40,6 +40,13 @@ const isProvinsi = (req, res, next) => {
 const isKabupaten = (req, res, next) => {
     if (req.user.role !== 'kabupaten') {
         return res.status(403).json({ message: 'Access denied. Only for kabupaten role.' });
+    }
+    next();
+};
+
+const isKecamatan = (req, res, next) => {
+    if (req.user.role !== 'kecamatan') {
+        return res.status(403).json({ message: 'Access denied. Only for kecamatan role.' });
     }
     next();
 };
@@ -71,6 +78,7 @@ module.exports = {
     isNasional,
     isProvinsi,
     isKabupaten,
+    isKecamatan,
     isKelurahan,
     isPendataan,
     isPenghitungan,

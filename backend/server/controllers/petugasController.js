@@ -2,11 +2,6 @@ const db = require('../helper/connectionDB');
 
 const createPetugas = async (req, res) => {
     try {
-        // Ensure only kelurahan admins can create petugas
-        if (req.user.role !== 'kelurahan') {
-            return res.status(403).json({ message: 'Access denied. Only kelurahan admins can create petugas.' });
-        }
-
         const { username, password, nama, role, tps_id } = req.body;
 
         // Validate role
@@ -65,9 +60,26 @@ const deletePetugas = async (req, res) => {
     }
 };
 
+// Get id_tps for a specific petugas
+const getIdTps = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const [result] = await db.query('SELECT tps_id FROM petugas WHERE id = ?', [id]);
+        if (!result) {
+            return res.status(404).json({ message: 'Petugas not found.' });
+        }
+
+        res.status(200).json({ message: 'TPS ID fetched successfully.', tps_id: result.tps_id });
+    } catch (error) {
+        res.status(500).json({ message: 'Error fetching TPS ID.', error });
+    }
+};
+
 module.exports = {
     createPetugas,
     getPetugas,
     updatePetugas,
     deletePetugas,
+    getIdTps, // Export the new function
 };
