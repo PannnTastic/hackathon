@@ -1,5 +1,4 @@
-const express = require('express');
-const router = express.Router();
+const router = require('express').Router();
 const laporanRoutes = require('./laporanRoutes');
 const suaraRoutes = require('./suaraRoutes');
 const authRoutes = require('./authRoutes'); // Import auth routes

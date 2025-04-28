@@ -1,78 +1,56 @@
 const db = require('../helper/connectionDB');
 const jwt = require('jsonwebtoken');
 
-//done
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
+        const roleTableMap = {
+            national: 'nationalUsersDetail',
+            province: 'provinceUsersDetail',
+            city: 'cityUsersDetail',
+            district: 'districtUsersDetail',
+            subdistrict: 'subdistrictUsersDetail',
+            officerTps: 'officerTpsUserDetail',
+            adminTps: 'adminTpsUserDetail',
+        };
 
         if (!email || !password) {
             return res.status(400).json({ message: 'Email and password are required.' });
         }
 
-        // Check if the user exists
-        const [user] = await db.query('SELECT * FROM users WHERE users = ?', [email]);
+        const [rowsUser] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+        const user = rowsUser[0];
         if (!user) {
             return res.status(404).json({ message: 'User not found.' });
         }
-
-        // Validate password
-        if (user.password !== password) {
-            return res.status(401).json({ message: 'Invalid password.' });
+        const tableName = roleTableMap[user.role];
+        if (!tableName) {
+            return res.status(400).json({ message: 'Invalid user role.' });
         }
 
-        if(user.role === 'national'){
-            const [national] = await db.query('SELECT * FROM nationalUsersDetail WHERE idUser = ?', [user.id]);
-            if (!national) {
-                return res.status(404).json({ message: 'National user details not found.' });
-            }
-        }else if(user.role === 'province'){
-            const [province] = await db.query('SELECT * FROM provinceUsersDetail WHERE idUser = ?', [user.id]);
-            if (!province) {
-                return res.status(404).json({ message: 'Province user details not found.' });
-            }
-        }else if(user.role === 'city'){
-            const [city] = await db.query('SELECT * FROM cityUsersDetail WHERE idUser = ?', [user.id]);
-            if (!city) {
-                return res.status(404).json({ message: 'City user details not found.' });
-            }
-        }else if(user.role === 'district'){
-            const [district] = await db.query('SELECT * FROM districtUsersDetail WHERE idUser = ?', [user.id]);
-            if (!district) {
-                return res.status(404).json({ message: 'District user details not found.' });
-            }
-        }else if(user.role === 'subdistrict'){
-            const [subdistrict] = await db.query('SELECT * FROM subdistrictUsersDetail WHERE idUser = ?', [user.id]);
-            if (!subdistrict) {
-                return res.status(404).json({ message: 'Subdistrict user details not found.' });
-            }
-        }else if(user.role === 'officerTps'){
-            const [officerTps] = await db.query('SELECT * FROM officerTpsUserDetail WHERE idUser = ?', [user.id]);
-            if (!officerTps) {
-                return res.status(404).json({ message: 'Officer TPS user details not found.' });
-            }
-        }else if(user.role === 'adminTps'){
-            const [officerKp] = await db.query('SELECT * FROM adminTpsUserDetail WHERE idUser = ?', [user.id]);
-            if (!officerKp) {
-                return res.status(404).json({ message: 'Admin Tps user details not found.' });
-            }
+        const [rows] = await db.query(`SELECT * FROM ${tableName} WHERE idUser = ?`, user.idUser);
+        const userDetails = rows[0];
+        if (!userDetails) {
+            return res.status(404).json({ message: 'User details not found.' });
         }
 
-        // Generate JWT token
-        const token = jwt.sign(
-            {
-                id: user.id,
-                email: user.email,
-                role: user.role,
-                idProvince: user.role === 'province' ? user.idProvince : null,
-                idCity: user.role === 'city' ? user.idCity : null,
-                idDistrict: user.role === 'district' ? user.idDistrict : null,
-                idSubdistrict: user.role === 'subdistrict' ? user.idSubdistrict : null,
-                idTps: user.role === 'officerTps' || 'adminTps' ? user.idTps : null,
-            },
-            process.env.JWT_SECRET,
-            { expiresIn: '1d' }
-        );
+        const tokenPayload = {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+        };
+        if (userDetails.role === 'province') {
+            tokenPayload.idProvince = userDetails.idProvince;
+        } else if (userDetails.role === 'city') {
+            tokenPayload.idCity = userDetails.idCity;
+        } else if (userDetails.role === 'district') {
+            tokenPayload.idDistrict = userDetails.idDistrict;
+        } else if (userDetails.role === 'subdistrict') {
+            tokenPayload.idSubdistrict = user.idSubdistrict;
+        } else if (userDetails.role === 'officerTps' || userDetails.role === 'adminTps') {
+            tokenPayload.idTps = userDetails.idTps;
+        }
+        const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1d' });
 
         res.status(200).json({ message: 'Login successful.', token });
     } catch (error) {
