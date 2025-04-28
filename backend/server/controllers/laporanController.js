@@ -14,7 +14,7 @@ const createLaporan = async (req, res) => {
         res.status(500).json({ message: 'Error creating laporan.', error });
     }
 };
- 
+
 const getLaporan = async (req, res) => {
     try {
         const laporan = await db.query('SELECT * FROM laporan');

@@ -1,16 +1,16 @@
 const db = require('../helper/connectionDB');
 
+//Done
 const createAdmin = async (req, res) => {
     try {
-        const { username, password, nama, role } = req.body;
+        const { email, password, name, role, idLocation } = req.body;
 
-        // Enforce hierarchical role-based restrictions
         const allowedRoles = {
-            nasional: ['provinsi','kabupaten','kecamatan','kelurahan'],
-            provinsi: ['kabupaten', 'kecamatan','kelurahan'],
-            kabupaten: ['kecamatan', 'kelurahan'],
-            kecamatan: ['kelurahan'],
-            kelurahan: [], // Kelurahan cannot create any admin
+            nasional: ['provinsi','kabupaten','kecamatan','kelurahan', 'adminTps', 'officerTps'],
+            provinsi: ['kabupaten', 'kecamatan','kelurahan', 'adminTps', 'officerTps'],
+            kabupaten: ['kecamatan', 'kelurahan', 'adminTps', 'officerTps'],
+            kecamatan: ['kelurahan', 'adminTps', 'officerTps'],
+            kelurahan: ['adminTps', 'officerTps'],
         };
 
         if (!allowedRoles[req.user.role]?.includes(role)) {
@@ -19,11 +19,55 @@ const createAdmin = async (req, res) => {
             });
         }
 
-        await db.query(
-            'INSERT INTO admin (username, password, nama, role) VALUES (?, ?, ?, ?)',
-            [username, password, nama, role]
-        );
+        const existingAdmin = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+        if (existingAdmin.length > 0) {
+            return res.status(400).json({ message: 'Admin already exists.' });
+        }
+        
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
 
+            const [userResult] = await connection.query(
+                'INSERT INTO users (email, password, role) VALUES (?, ?, ?)',
+                [username, password, role]
+            );
+
+            const userId = userResult.insertId; 
+
+            let detailQuery = '';
+            let detailParams = [];
+            if (role === 'national') {
+                detailQuery = 'INSERT INTO nationalUsersDetail (idUser, name) VALUES (?, ?)';
+                detailParams = [userId, name];
+            } else if (role === 'province') {
+                detailQuery = 'INSERT INTO provinceUsersDetail (idUser, name, idProvince) VALUES (?, ?, ?)';
+                detailParams = [userId, name, idLocation];
+            } else if (role === 'district') {
+                detailQuery = 'INSERT INTO districtUsersDetail (idUser, name, idDistrict) VALUES (?, ?, ?)';
+                detailParams = [userId, name, idLocation];
+            } else if (role === 'sub_district') {
+                detailQuery = 'INSERT INTO subDistrictUsersDetail (idUser, name, idSubDistrict) VALUES (?, ?, ?)';
+                detailParams = [userId, name, idLocation];
+            } else if (role === 'officerTps') {
+                detailQuery = 'INSERT INTO officerTpsUserDetail (idUser, name, idTps) VALUES (?, ?, ?)';
+                detailParams = [userId, name, idLocation];
+            } else if (role === 'adminTps') {
+                detailQuery = 'INSERT INTO adminTpsUserDetail (idUser, name, idTps) VALUES (?, ?, ?)';
+                detailParams = [userId, name, idLocation];
+            } else {
+                throw new Error('Role tidak valid');
+            }
+            await connection.query(detailQuery, detailParams);
+            await connection.commit();
+            console.log('User dan detail berhasil dibuat.');
+        } catch (error) {
+            await connection.rollback();
+            console.error('Gagal membuat user:', error.message);
+            throw error;
+        } finally {
+            connection.release();
+        }
         res.status(201).json({ message: 'Admin created successfully.' });
     } catch (error) {
         res.status(500).json({ message: 'Error creating admin.', error });
