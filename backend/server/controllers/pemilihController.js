@@ -2,10 +2,24 @@ const db = require('../helper/connectionDB');
 
 const createPemilih = async (req, res) => {
     try {
-        const { nama, tanggal_lahir, jenis_kelamin, tps_id } = req.body;
+        const { role } = req.user;
+        if (role === 'officerTPS') {
+            return res.status(403).json({ 
+                status: 403,
+                message: 'Forbidden: You do not have permission to create pemilih.' 
+            });
+        }
+
+        const { nama, tanggal_lahir, jenis_kelamin, role } = req.body;
+        if (!nama || !tanggal_lahir || !jenis_kelamin || !tps_id) {
+            return res.status(400).json({ 
+                status: 400,
+                message: 'All fields are required.' 
+            });
+        }
 
         await db.query(
-            'INSERT INTO pemilih (nama, tanggal_lahir, jenis_kelamin, tps_id) VALUES (?, ?, ?, ?)',
+            'INSERT INTO voterData (nik, name, dateOfBirth, gender, idOfficer) VALUES (?, ?, ?, ?, ?)',
             [nama, tanggal_lahir, jenis_kelamin, tps_id]
         );
 

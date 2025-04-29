@@ -41,8 +41,7 @@ async function authenticateToken(req, res, next) {
 
         next();
     } catch (err) {
-        console.error(err);
-        res.status(403).json({ message: 'Token invalid' });
+        res.redirect('/');
     }
 }
 

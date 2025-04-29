@@ -8,6 +8,8 @@ const allowedRoles = {
     city: ['district', 'sub_district', 'adminTps', 'officerTps'],
     district: ['sub_district', 'adminTps', 'officerTps'],
     sub_district: ['adminTps', 'officerTps'],
+    adminTps: ['officerTps'],
+    officerTps: [],
 };
 
 const createAdmin = async (req, res) => {
