@@ -1,27 +1,40 @@
 const db = require('../helper/connectionDB');
 
-
-// Pisahkan Checking Role ke Middlware
-const allowedRoles = {
-    national: ['province', 'city', 'district', 'sub_district', 'adminTps', 'officerTps'],
-    province: ['city', 'district', 'sub_district', 'adminTps', 'officerTps'],
-    city: ['district', 'sub_district', 'adminTps', 'officerTps'],
-    district: ['sub_district', 'adminTps', 'officerTps'],
-    sub_district: ['adminTps', 'officerTps'],
-    adminTps: ['officerTps'],
-    officerTps: [],
-};
-
 const createAdmin = async (req, res) => {
     try {
         const { email, password, name, role, idLocation } = req.body;
+        const { role: creatorRole, wilayah } = req.user; // Mengambil role dan wilayah dari user
 
-        // Cek apakah role user pembuat diperbolehkan membuat role yang diinginkan
-        if (!allowedRoles[req.user.role]?.includes(role)) {
-            return res.status(403).json({
-                status: 403,
-                message: `Access denied. ${req.user.role} can only create: ${allowedRoles[req.user.role].join(', ')}`,
-            });
+        if (creatorRole !== 'national') {
+            const locationStr = idLocation.toString();
+            let creatorLocationStr;
+
+            switch (creatorRole) {
+                case 'province':
+                    creatorLocationStr = wilayah.idProvince.toString();
+                    if (locationStr.substring(0, 2) !== creatorLocationStr.substring(0, 2)) {
+                        return res.status(403).json({ message: 'Location is not under your jurisdiction.' });
+                    }
+                    break;
+                case 'city':
+                    creatorLocationStr = wilayah.idCity.toString();
+                    if (locationStr.substring(0, 4) !== creatorLocationStr.substring(0, 4)) {
+                        return res.status(403).json({ message: 'Location is not under your jurisdiction.' });
+                    }
+                    break;
+                case 'district':
+                    creatorLocationStr = wilayah.idDistrict.toString();
+                    if (locationStr.substring(0, 6) !== creatorLocationStr.substring(0, 6)) {
+                        return res.status(403).json({ message: 'Location is not under your jurisdiction.' });
+                    }
+                    break;
+                case 'sub_district':
+                    creatorLocationStr = wilayah.idSubDistrict.toString();
+                    if (locationStr.substring(0, 8) !== creatorLocationStr.substring(0, 8)) {
+                        return res.status(403).json({ message: 'Location is not under your jurisdiction.' });
+                    }
+                    break;
+            }
         }
 
         // Cek apakah email sudah terdaftar
@@ -50,6 +63,9 @@ const createAdmin = async (req, res) => {
                 detailParams = [userId, name];
             } else if (role === 'province') {
                 detailQuery = 'INSERT INTO provinceUsersDetail (idUser, name, idProvince) VALUES (?, ?, ?)';
+                detailParams = [userId, name, idLocation];
+            }else if (role === 'city') {
+                detailQuery = 'INSERT INTO cityUsersDetail (idUser, name, idCity) VALUES (?, ?, ?)';
                 detailParams = [userId, name, idLocation];
             } else if (role === 'district') {
                 detailQuery = 'INSERT INTO districtUsersDetail (idUser, name, idDistrict) VALUES (?, ?, ?)';
@@ -82,12 +98,11 @@ const createAdmin = async (req, res) => {
 };
 
 
-
 const getAdmin = async (req, res) => {
     try {
-        const { role, wilayah } = req.user;
-        const { idProvince, idCity, idDistrict, idSubDistrict } = req.query;
-    
+        const { role, wilayah } = req.user;  // Mengambil role dan wilayah dari user
+        const { idProvince, idCity, idDistrict, idSubDistrict, idTps } = req.query;  // Parameter query
+
         let query = `
         SELECT users.idUser, users.email, users.role, 
                 COALESCE(nud.name, pud.name, cud.name, dud.name, sdud.name, atud.name, otud.name) AS name
@@ -101,45 +116,64 @@ const getAdmin = async (req, res) => {
         LEFT JOIN officerTpsUserDetail otud ON users.idUser = otud.idUser
         WHERE 1=1
         `;
-    
+        // console.log(await db.query(query))
         const params = [];
-    
-        // Role restriction
+
+        // Role restriction untuk Provinsi, Kota, Kecamatan, Kelurahan, dan TPS
         if (role === 'province') {
-        query += ` AND pud.idProvince = ?`;
-        params.push(wilayah.idProvince);
+            query += ` AND (
+            pud.idProvince = ? OR 
+            cud.idCity IN (SELECT idCity FROM cityData WHERE idProvince = ?) OR
+            dud.idDistrict IN (SELECT idDistrict FROM districtData WHERE idCity IN (SELECT idCity FROM cityData WHERE idProvince = ?)) OR
+            sdud.idSubDistrict IN (SELECT idSubDistrict FROM subDistrictData WHERE idDistrict IN (SELECT idDistrict FROM districtData WHERE idCity IN (SELECT idCity FROM cityData WHERE idProvince = ?)))
+            )`;
+            params.push(wilayah.idProvince, wilayah.idProvince, wilayah.idProvince, wilayah.idProvince);
         } else if (role === 'city') {
-        query += ` AND cud.idCity = ?`;
-        params.push(wilayah.idCity);
+            query += ` AND (
+            cud.idCity = ? OR
+            dud.idDistrict IN (SELECT idDistrict FROM districtData WHERE idCity = ?) OR
+            sdud.idSubDistrict IN (SELECT idSubDistrict FROM subDistrictData WHERE idDistrict IN (SELECT idDistrict FROM districtData WHERE idCity = ?))
+            )`;
+            params.push(wilayah.idCity, wilayah.idCity, wilayah.idCity);
         } else if (role === 'district') {
-        query += ` AND dud.idDistrict = ?`;
-        params.push(wilayah.idDistrict);
+            query += ` AND (
+            dud.idDistrict = ? OR
+            sdud.idSubDistrict IN (SELECT idSubDistrict FROM subDistrictData WHERE idDistrict = ?)
+            )`;
+            params.push(wilayah.idDistrict, wilayah.idDistrict);
         } else if (role === 'sub_district') {
-        query += ` AND sdud.idSubDistrict = ?`;
-        params.push(wilayah.idSubDistrict);
+            query += ` AND sdud.idSubDistrict = ?`;
+            params.push(wilayah.idSubDistrict);
+        
         }
-    
-        // Filter dari query params
+
+        // Filter berdasarkan query params untuk fleksibilitas pencarian
         if (idProvince) {
-        query += ` AND pud.idProvince = ?`;
-        params.push(idProvince);
+            query += ` AND pud.idProvince = ?`;
+            params.push(idProvince);
         }
         if (idCity) {
-        query += ` AND cud.idCity = ?`;
-        params.push(idCity);
+            query += ` AND cud.idCity = ?`;
+            params.push(idCity);
         }
         if (idDistrict) {
-        query += ` AND dud.idDistrict = ?`;
-        params.push(idDistrict);
+            query += ` AND dud.idDistrict = ?`;
+            params.push(idDistrict);
         }
         if (idSubDistrict) {
-        query += ` AND sdud.idSubDistrict = ?`;
-        params.push(idSubDistrict);
+            query += ` AND sdud.idSubDistrict = ?`;
+            params.push(idSubDistrict);
         }
-    
+        if (idTps) {
+            query += ` AND (atud.idTps = ? OR otud.idTps = ?)`;
+            params.push(idTps, idTps); // Memastikan admin dan petugas TPS hanya melihat TPS yang sama
+        }
+
+        // Menjalankan query untuk mengambil data sesuai dengan role dan wilayah pengguna
         const [results] = await db.query(query, params);
-    
-        res.json(results);
+        
+
+        res.json(results);  // Mengirimkan hasil query sebagai response
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Internal server error' });
@@ -149,7 +183,45 @@ const getAdmin = async (req, res) => {
 const updateAdmin = async (req, res) => {
     try {
         const { idUser } = req.params; // ambil ID user dari URL
-        const { email, name, role, idLocation } = req.body;
+        const { email, name, role } = req.body;
+        const dynamicIdKey = Object.keys(req.user).find(
+            key => key.startsWith('id') && key !== 'idUser'
+        );
+        const dynamicIdValue = req.user[dynamicIdKey];
+
+        // hanya bisa update tergantung administrator
+        const { role: userRole, wilayah } = req.user; // Mengambil role dan wilayah dari user
+        if (userRole !== 'national') {
+            const locationStr = dynamicIdValue.toString();
+            let creatorLocationStr;
+
+            switch (userRole) {
+                case 'province':
+                    creatorLocationStr = wilayah.idProvince.toString();
+                    if (locationStr.substring(0, 2) !== creatorLocationStr.substring(0, 2)) {
+                        return res.status(403).json({ message: 'Location is not under your jurisdiction.' });
+                    }
+                    break;
+                case 'city':
+                    creatorLocationStr = wilayah.idCity.toString();
+                    if (locationStr.substring(0, 4) !== creatorLocationStr.substring(0, 4)) {
+                        return res.status(403).json({ message: 'Location is not under your jurisdiction.' });
+                    }
+                    break;
+                case 'district':
+                    creatorLocationStr = wilayah.idDistrict.toString();
+                    if (locationStr.substring(0, 6) !== creatorLocationStr.substring(0, 6)) {
+                        return res.status(403).json({ message: 'Location is not under your jurisdiction.' });
+                    }
+                    break;
+                case 'sub_district':
+                    creatorLocationStr = wilayah.idSubDistrict.toString();
+                    if (locationStr.substring(0, 8) !== creatorLocationStr.substring(0, 8)) {
+                        return res.status(403).json({ message: 'Location is not under your jurisdiction.' });
+                    }
+                    break;
+            }
+        }
 
         // Cari user yang mau di-update
         const [user] = await db.query('SELECT * FROM users WHERE id = ?', [idUser]);
@@ -158,11 +230,6 @@ const updateAdmin = async (req, res) => {
         }
 
         const currentRole = user[0].role;
-
-        // Cek apakah role user pembuat diperbolehkan mengubah role user target
-        if (!allowedRoles[req.user.role]?.includes(currentRole)) {
-            return res.status(403).json({ message: `Access denied to update ${currentRole}` });
-        }
 
         const connection = await db.getConnection();
         try {
@@ -185,7 +252,7 @@ const updateAdmin = async (req, res) => {
             if (['national'].includes(currentRole)) {
                 await connection.query(`UPDATE ${detailTable} SET name = ? WHERE idUser = ?`, [name, idUser]);
             } else {
-                await connection.query(`UPDATE ${detailTable} SET name = ?, idLocation = ? WHERE idUser = ?`, [name, idLocation, idUser]);
+                await connection.query(`UPDATE ${detailTable} SET name = ?, ${dynamicIdKey} =  WHERE idUser = ?`, [name, dynamicIdValue, idUser]);
             }
 
             await connection.commit();
@@ -213,11 +280,6 @@ const deleteAdmin = async (req, res) => {
         }
 
         const currentRole = user[0].role;
-
-        // Cek apakah role user pembuat diperbolehkan menghapus user target
-        if (!allowedRoles[req.user.role]?.includes(currentRole)) {
-            return res.status(403).json({ message: `Access denied to delete ${currentRole}` });
-        }
 
         const connection = await db.getConnection();
         try {

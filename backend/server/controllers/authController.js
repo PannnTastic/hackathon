@@ -14,7 +14,7 @@ const login = async (req, res) => {
         const user = users[0];
 
         if (!user) {
-            return res.status(404).json({ message: 'User not found.' });
+            return res.status(404).json({ message: 'Email Or Password Invalid.' });
         }
 
         // Cek Password Dengan MD5 Hash
@@ -22,7 +22,7 @@ const login = async (req, res) => {
         const hashedPassword = hashedPasswordResult[0].hashedPassword;
 
         if (user.password !== hashedPassword) {
-            return res.status(401).json({ message: 'Invalid password.' });
+            return res.status(404).json({ message: 'Email Or Password Invalid' });
         }
 
         // Mapping table detail berdasarkan role
@@ -64,7 +64,14 @@ const login = async (req, res) => {
         if (userDetails.idTps) payload.idTps = userDetails.idTps;
 
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
+        
+        // simpan token ke cookies
+        res.cookie('token', token, {
+            httpOnly: true,
+            maxAge: 24 * 60 * 60 * 500, // 5 days
+        });
 
+        // Kirim response
         return res.status(200).json({
             status: 200,
             message: 'Login successful.',

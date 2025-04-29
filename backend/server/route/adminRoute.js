@@ -1,19 +1,14 @@
 const express = require('express');
 const router = express.Router();
+const db = require('../helper/connectionDB');
 const adminController = require('../controllers/adminController');
 const { authenticateToken } = require('../middleware/authMiddleware');
-const { checkRolePermission } = require('../middleware/roleMiddleware');
+const { authorizeC, authorizeUD } = require('../middleware/roleMiddleware');
 
-
-
-// Apply authentication and role-based middleware
 router.use(authenticateToken);
-
-// Create, Read, Update, Delete (CRUD) For All Role With Constraint
-router.post('/createUser', adminController.createAdmin); // Create admin
-router.get('/readUser', adminController.getAdmin); // Read admin
-router.put('/updateUser/:idUser', adminController.updateAdmin); // Update admin
-router.delete('/deleteUser/:idUser', adminController.deleteAdmin); // Delete admin
-
+router.post('/createUser', authorizeC('adminController'),adminController.createAdmin);
+router.get('/readUser', adminController.getAdmin);
+router.put('/updateUser/:idUser/:regionCodeTarget', authorizeUD('adminController'), adminController.updateAdmin);
+router.delete('/deleteUser/:idUser/:regionCodeTarget', authorizeUD('adminController'), adminController.deleteAdmin);
 
 module.exports = router;
