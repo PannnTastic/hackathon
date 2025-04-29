@@ -4,6 +4,28 @@ const jwt = require('jsonwebtoken');
 const login = async (req, res) => {
     try {
         const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({ message: 'Email and password are required.' });
+        }
+
+        // Cek user dari tabel 'users'
+        const [users] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+        const user = users[0];
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+
+        // Cek Password Dengan MD5 Hash
+        const [hashedPasswordResult] = await db.query('SELECT MD5(?) AS hashedPassword', [password]);
+        const hashedPassword = hashedPasswordResult[0].hashedPassword;
+
+        if (user.password !== hashedPassword) {
+            return res.status(401).json({ message: 'Invalid password.' });
+        }
+
+        // Mapping table detail berdasarkan role
         const roleTableMap = {
             national: 'nationalUsersDetail',
             province: 'provinceUsersDetail',
@@ -14,51 +36,45 @@ const login = async (req, res) => {
             adminTps: 'adminTpsUserDetail',
         };
 
-        if (!email || !password) {
-            return res.status(400).json({ message: 'Email and password are required.' });
-        }
-
-        const [rowsUser] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
-        const user = rowsUser[0];
-        if (!user) {
-            return res.status(404).json({ message: 'User not found.' });
-        }
         const tableName = roleTableMap[user.role];
         if (!tableName) {
             return res.status(400).json({ message: 'Invalid user role.' });
         }
 
-        const [rows] = await db.query(`SELECT * FROM ${tableName} WHERE idUser = ?`, user.idUser);
-        const userDetails = rows[0];
+        // Query user details berdasarkan idUser
+        const [details] = await db.query(`SELECT * FROM ?? WHERE idUser = ?`, [tableName, user.idUser]);
+        const userDetails = details[0];
+
         if (!userDetails) {
             return res.status(404).json({ message: 'User details not found.' });
         }
 
-        const tokenPayload = {
-            id: user.id,
+        // Membuat payload token
+        const payload = {
+            idUser: user.idUser,
             email: user.email,
             role: user.role,
         };
-        if (userDetails.role === 'province') {
-            tokenPayload.idProvince = userDetails.idProvince;
-        } else if (userDetails.role === 'city') {
-            tokenPayload.idCity = userDetails.idCity;
-        } else if (userDetails.role === 'district') {
-            tokenPayload.idDistrict = userDetails.idDistrict;
-        } else if (userDetails.role === 'subdistrict') {
-            tokenPayload.idSubdistrict = user.idSubdistrict;
-        } else if (userDetails.role === 'officerTps' || userDetails.role === 'adminTps') {
-            tokenPayload.idTps = userDetails.idTps;
-        }
-        const token = jwt.sign(tokenPayload, process.env.JWT_SECRET, { expiresIn: '1d' });
 
-        res.status(200).json({ message: 'Login successful.', token });
+        // Menambahkan properti tambahan sesuai role
+        if (userDetails.idProvince) payload.idProvince = userDetails.idProvince;
+        if (userDetails.idCity) payload.idCity = userDetails.idCity;
+        if (userDetails.idDistrict) payload.idDistrict = userDetails.idDistrict;
+        if (userDetails.idSubdistrict) payload.idSubdistrict = userDetails.idSubdistrict;
+        if (userDetails.idTps) payload.idTps = userDetails.idTps;
+
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
+
+        return res.status(200).json({
+            status: 200,
+            message: 'Login successful.',
+            token,
+        });
+
     } catch (error) {
-        res.status(500).json({ message: 'Error during login.', error });
         console.error('Login error:', error);
+        return res.status(500).json({ message: 'Internal server error.', error: error.message });
     }
 };
 
-module.exports = {
-    login,
-};
+module.exports = { login };

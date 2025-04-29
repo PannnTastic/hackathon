@@ -1,56 +1,19 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController');
-const petugasController = require('../controllers/petugasController');
-const tpsController = require('../controllers/tpsController'); // Import tpsController
-const laporanController = require('../controllers/laporanController'); // Import laporanController
-const suara = require('../controllers/suaraController'); // Import suaraController
-const { authenticate, isNasional } = require('../middleware/authMiddleware');
+const { authenticateToken } = require('../middleware/authMiddleware');
+const { checkRolePermission } = require('../middleware/roleMiddleware');
+
+
 
 // Apply authentication and role-based middleware
-router.use(authenticate, isNasional);
+router.use(authenticateToken);
 
-// CRUD for provinsi admins
-router.post('/provinsi', adminController.createAdmin);
-router.get('/provinsi', adminController.getAdmins);
-router.put('/provinsi/:id', adminController.updateAdmin);
-router.delete('/provinsi/:id', adminController.deleteAdmin);
+// Create, Read, Update, Delete (CRUD) For All Role With Constraint
+router.post('/createUser', adminController.createAdmin); // Create admin
+router.get('/readUser', adminController.getAdmin); // Read admin
+router.put('/updateUser/:idUser', adminController.updateAdmin); // Update admin
+router.delete('/deleteUser/:idUser', adminController.deleteAdmin); // Delete admin
 
-// CRUD for kabupaten admins
-router.post('/kabupaten', adminController.createAdmin);
-router.get('/kabupaten', adminController.getAdmins);
-router.put('/kabupaten/:id', adminController.updateAdmin);
-router.delete('/kabupaten/:id', adminController.deleteAdmin);
-
-// CRUD for kecamatan admins
-router.post('/kecamatan', adminController.createAdmin);
-router.get('/kecamatan', adminController.getAdmins);
-router.put('/kecamatan/:id', adminController.updateAdmin);
-router.delete('/kecamatan/:id', adminController.deleteAdmin);
-
-// CRUD for kelurahan admins
-router.post('/kelurahan', adminController.createAdmin);
-router.get('/kelurahan', adminController.getAdmins);
-router.put('/kelurahan/:id', adminController.updateAdmin);
-router.delete('/kelurahan/:id', adminController.deleteAdmin);
-
-// CRUD for petugas
-router.post('/petugas', petugasController.createPetugas);
-router.get('/petugas', petugasController.getPetugas);
-router.put('/petugas/:id', petugasController.updatePetugas);
-router.delete('/petugas/:id', petugasController.deletePetugas);
-
-// CRUD for TPS
-router.post('/tps', tpsController.createTps);
-router.get('/tps', tpsController.getTps);
-router.put('/tps/:id', tpsController.updateTps);
-router.delete('/tps/:id', tpsController.deleteTps);
-
-// CRUD for laporan
-router.get('/laporan', laporanController.getLaporan); // Read laporan
-router.put('/laporan/:id', laporanController.updateLaporan); // Edit laporan
-
-router.put('/suara/:id', suara.editSuara); // Edit suara
-router.get('/suara', suara.getSuara); // Read suara
 
 module.exports = router;

@@ -1,85 +1,51 @@
 const jwt = require('jsonwebtoken');
+const db = require('../helper/connectionDB'); // koneksi database
 
-const authenticate = (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-        return res.status(401).json({ message: 'Access denied. No token provided.' });
-    }
+async function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'Token not found' });
 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.user = decoded;
+
+        // Tambahkan data wilayah ke req.user
+        const { idUser, role } = decoded;
+        let wilayahQuery = '';
+        switch (role) {
+        case 'province':
+            wilayahQuery = `SELECT idProvince FROM provinceUsersDetail WHERE idUser = ?`;
+            break;
+        case 'city':
+            wilayahQuery = `SELECT idCity FROM cityUsersDetail WHERE idUser = ?`;
+            break;
+        case 'district':
+            wilayahQuery = `SELECT idDistrict FROM districtUsersDetail WHERE idUser = ?`;
+            break;
+        case 'sub_district':
+            wilayahQuery = `SELECT idSubDistrict FROM subDistrictUsersDetail WHERE idUser = ?`;
+            break;
+        case 'adminTps':
+        case 'officerTps':
+            wilayahQuery = `SELECT idTps FROM adminTpsUserDetail WHERE idUser = ?`;
+            break;
+        default:
+            wilayahQuery = '';
+        }
+
+        if (wilayahQuery) {
+        const [wilayah] = await db.query(wilayahQuery, [idUser]);
+        req.user.wilayah = wilayah[0];
+        }
+
         next();
-    } catch (error) {
-        res.status(400).json({ message: 'Invalid token.' });
+    } catch (err) {
+        console.error(err);
+        res.status(403).json({ message: 'Token invalid' });
     }
-};
-
-const authorize = (roles) => (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-        return res.status(403).json({ message: 'Access denied. Insufficient permissions.' });
-    }
-    next();
-};
-
-// Middleware for specific roles
-const isNasional = (req, res, next) => {
-    if (req.user.role !== 'nasional') {
-        return res.status(403).json({ message: 'Access denied. Only for nasional role.' });
-    }
-    next();
-};
-
-const isProvinsi = (req, res, next) => {
-    if (req.user.role !== 'provinsi') {
-        return res.status(403).json({ message: 'Access denied. Only for provinsi role.' });
-    }
-    next();
-};
-
-const isKabupaten = (req, res, next) => {
-    if (req.user.role !== 'kabupaten') {
-        return res.status(403).json({ message: 'Access denied. Only for kabupaten role.' });
-    }
-    next();
-};
-
-const isKecamatan = (req, res, next) => {
-    if (req.user.role !== 'kecamatan') {
-        return res.status(403).json({ message: 'Access denied. Only for kecamatan role.' });
-    }
-    next();
-};
-
-const isKelurahan = (req, res, next) => {
-    if (req.user.role !== 'kelurahan') {
-        return res.status(403).json({ message: 'Access denied. Only for kelurahan role.' });
-    }
-    next();
-};
-
-const isPendataan = (req, res, next) => {
-    if (req.user.role !== 'pendataan') {
-        return res.status(403).json({ message: 'Access denied. Only for pendataan role.' });
-    }
-    next();
-};
-
-const isPenghitungan = (req, res, next) => {
-    if (req.user.role !== 'penghitungan') {
-        return res.status(403).json({ message: 'Access denied. Only for penghitungan role.' });
-    }
-    next();
-};
+}
 
 module.exports = {
-    authenticate,
-    authorize,
-    isNasional,
-    isProvinsi,
-    isKabupaten,
-    isKecamatan,
-    isKelurahan,
-    isPendataan,
-    isPenghitungan,
+    authenticateToken,
 };
