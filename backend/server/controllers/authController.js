@@ -11,8 +11,13 @@ const login = async (req, res) => {
             return res.status(404).json({ message: 'User not found.' });
         }
 
-        // Validate password
-        if (user.password !== password) {
+        // Cek Password Dengan MD5 Hash
+        const [hashedPasswordResult] = await db.query('SELECT MD5(?) AS hashedPassword', [password]);
+        const hashedPassword = hashedPasswordResult[0].hashedPassword;
+
+        console.log('HashedPassword:',  hashedPassword);
+
+        if (user.password !== hashedPassword) {
             return res.status(401).json({ message: 'Invalid password.' });
         }
 

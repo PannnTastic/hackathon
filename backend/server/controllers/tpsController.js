@@ -2,11 +2,11 @@ const db = require('../helper/connectionDB');
 
 const createTps = async (req, res) => {
     try {
-        const { provinsi, kabupaten, kecamatan, kelurahan, no_tps } = req.body;
+        const { name, idSubDistrict } = req.body;
 
         await db.query(
-            'INSERT INTO tps (provinsi, kabupaten, kecamatan, kelurahan, no_tps) VALUES (?, ?, ?, ?, ?)',
-            [provinsi, kabupaten, kecamatan, kelurahan, no_tps]
+            'INSERT INTO tpsData (name, idSubDistrict) VALUES (?, ?)',
+            [name, idSubDistrict]
         );
 
         res.status(201).json({ message: 'TPS created successfully.' });
@@ -17,7 +17,7 @@ const createTps = async (req, res) => {
 
 const getTps = async (req, res) => {
     try {
-        const tps = await db.query('SELECT * FROM tps');
+        const tps = await db.query('SELECT * FROM tpsData');
 
         res.status(200).json({ message: 'List of TPS.', tps });
     } catch (error) {
@@ -28,11 +28,11 @@ const getTps = async (req, res) => {
 const updateTps = async (req, res) => {
     try {
         const { id } = req.params;
-        const { provinsi, kabupaten, kecamatan, kelurahan, no_tps } = req.body;
+        const { name, idSubDistrict } = req.body;
 
         await db.query(
-            'UPDATE tps SET provinsi = ?, kabupaten = ?, kecamatan = ?, kelurahan = ?, no_tps = ? WHERE id = ?',
-            [provinsi, kabupaten, kecamatan, kelurahan, no_tps, id]
+            'UPDATE tpsData SET name = ?, idSubDistrict = ? WHERE idTps = ?',
+            [name, idSubDistrict, id]
         );
 
         res.status(200).json({ message: 'TPS updated successfully.' });
@@ -45,7 +45,7 @@ const deleteTps = async (req, res) => {
     try {
         const { id } = req.params;
 
-        await db.query('DELETE FROM tps WHERE id = ?', [id]);
+        await db.query('DELETE FROM tpsData WHERE idTps = ?', [id]);
 
         res.status(200).json({ message: 'TPS deleted successfully.' });
     } catch (error) {
