@@ -1,5 +1,6 @@
 const router = require('express').Router();
-const authRoutes = require('./authRoutes');
+const authRoutes = require('./authRoute');
+const electionRoutes = require('./electionRoute');
 const adminRoute = require('./adminRoute');
 
 router.use('/admin', adminRoute);
