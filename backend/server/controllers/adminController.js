@@ -1,45 +1,52 @@
 const db = require('../helper/connectionDB');
 
 const createAdmin = async (req, res) => {
-    const {nama, email, password, regionName, createAdmin} = req.body;
-    const {role} = req.user;
+    // const {nama, email, password, regionName, createAdmin} = req.body;
+    // const {role} = req.user;
 
-    if (!nama || !email || !password || !regionName || !createAdmin) {
-        return res.status(400).json({
-            status: 400,
-            message: "All fields are required",
-        });
-    }
-    const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
-    if([rows][0].length > 0){
-        console.log(rows)
-        return res.status(400).json({
-            status: 400,
-            message: "Email Already Exist",
-        });
-    }
+    // if (!nama || !email || !password || !regionName || !createAdmin) {
+    //     return res.status(400).json({
+    //         status: 400,
+    //         message: "All fields are required",
+    //     });
+    // }
+    // const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+    // if([rows][0].length > 0){
+    //     console.log(rows)
+    //     return res.status(400).json({
+    //         status: 400,
+    //         message: "Email Already Exist",
+    //     });
+    // }
 
-    try{
-    const [rows] = await db.query('CALL sp_createAdmin_(?,?,?,?,?,?)', [nama, email, password, regionName, role, createAdmin])
-    if(rows[0][0].STATUS == 200){
-        return res.status(200).json({
-            status: 200,
-            message: "Berhasil menambah"
-    })}
-    return res.status(500).json({
-        status: 500,
-        message: "Gagal menambah",
-    })
-    }catch (error){
-        console.log(error)
-        return res.status(500).json({message: error.message})  
-    }
+    // try{
+    // const [rows] = await db.query('CALL sp_createAdmin_(?,?,?,?,?,?)', [nama, email, password, regionName, role, createAdmin])
+    // if(rows[0][0].STATUS == 200){
+    //     return res.status(200).json({
+    //         status: 200,
+    //         message: "Berhasil menambah"
+    // })}
+    // return res.status(500).json({
+    //     status: 500,
+    //     message: "Gagal menambah",
+    // })
+    // }catch (error){
+    //     console.log(error)
+    //     return res.status(500).json({message: error.message})  
+    // }
 };
 
 const getAdmin = async (req, res) => {
     try {
         const { role, wilayah } = req.user;
-        const { idProvince, idCity, idDistrict, idSubDistrict, idTps } = req.query;
+        const { idProvince, idCity, idDistrict, idSubDistrict, idTps, region } = req.query;
+
+        // Validasi region
+        const params = [region]; // region akan menjadi syarat pertama
+        const allowedRegions = ['national','province', 'city', 'district', 'sub_district', 'adminTps', 'officerTps'];
+        if (!region || !allowedRegions.includes(region)) {
+            return res.status(400).json({ message: 'Parameter region wajib diisi dan harus valid' });
+        }
 
         let query = `
         SELECT 
@@ -71,14 +78,13 @@ const getAdmin = async (req, res) => {
         LEFT JOIN subDistrictData sd ON sdud.idSubDistrict = sd.idSubDistrict
         LEFT JOIN tpsData tps ON atud.idTps = tps.idTps OR otud.idTps = tps.idTps
         
-        WHERE 1=1
+        WHERE users.role = ?
         `;
 
-        const params = [];
-
+        // Hak akses berdasarkan role user
         if (role === 'province') {
             query += ` AND (
-                pud.idProvince = ? OR 
+                pud.idProvince = ? OR
                 cud.idCity IN (SELECT idCity FROM cityData WHERE idProvince = ?) OR
                 dud.idDistrict IN (SELECT idDistrict FROM districtData WHERE idCity IN (SELECT idCity FROM cityData WHERE idProvince = ?)) OR
                 sdud.idSubDistrict IN (SELECT idSubDistrict FROM subDistrictData WHERE idDistrict IN (SELECT idDistrict FROM districtData WHERE idCity IN (SELECT idCity FROM cityData WHERE idProvince = ?)))
@@ -102,7 +108,7 @@ const getAdmin = async (req, res) => {
             params.push(wilayah.idSubDistrict);
         }
 
-        // Tambahan filter query params
+        // Tambahan filter query params (opsional)
         if (idProvince) {
             query += ` AND pud.idProvince = ?`;
             params.push(idProvince);
@@ -132,83 +138,10 @@ const getAdmin = async (req, res) => {
     }
 };
 
-const updateAdmin = async (req, res) => {
-    const { id } = req.params
-    const { nama, email, password, regionName, updateRole } = req.body;
-    const { role } = req.user;
-
-    try {
-        const [rows] = await db.query('CALL sp_editAdmin_(?,?,?,?,?,?);', [id, nama, email, password, regionName, role, updateRole])
-        console.log(rows[0][0].status)
-
-    if (rows[0][0].status == "Berhasil mengubah") {
-        res.status(200).json({
-            status: 200,
-            message: "Berhasil mengubah",
-        });
-    } else {
-        res.status(500).json({
-            status: 500,
-            message: "Gagal mengubah",
-        });
-    }
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({ message: 'Internal server error' });
-        
-    }
-
-};
-
-
-const deleteAdmin = async (req, res) => {
-    try {
-        const { idUser } = req.params;
-
-        // Cari user
-        const [user] = await db.query('SELECT * FROM users WHERE id = ?', [idUser]);
-        if (user.length === 0) {
-            return res.status(404).json({ message: 'User not found.' });
-        }
-
-        const currentRole = user[0].role;
-
-        const connection = await db.getConnection();
-        try {
-            await connection.beginTransaction();
-
-            // Delete dari tabel detail
-            let detailTable = '';
-            if (currentRole === 'national') detailTable = 'nationalUsersDetail';
-            else if (currentRole === 'province') detailTable = 'provinceUsersDetail';
-            else if (currentRole === 'district') detailTable = 'districtUsersDetail';
-            else if (currentRole === 'subdistrict') detailTable = 'subDistrictUsersDetail';
-            else if (currentRole === 'adminTps') detailTable = 'adminTpsUserDetail';
-            else if (currentRole === 'officerTps') detailTable = 'officerTpsUserDetail';
-            else throw new Error('Invalid role.');
-
-            await connection.query(`DELETE FROM ${detailTable} WHERE idUser = ?`, [idUser]);
-
-            // Delete dari tabel users
-            await connection.query('DELETE FROM users WHERE id = ?', [idUser]);
-
-            await connection.commit();
-            res.status(200).json({ message: 'Admin deleted successfully.' });
-        } catch (error) {
-            await connection.rollback();
-            throw error;
-        } finally {
-            connection.release();
-        }
-    } catch (error) {
-        res.status(500).json({ message: 'Error deleting admin.', error: error.message });
-    }
-};
-
 
 module.exports = {
     createAdmin,
     getAdmin,
-    updateAdmin,
-    deleteAdmin,
+    // updateAdmin,
+    // deleteAdmin,
 };
