@@ -44,6 +44,9 @@ async function authenticateToken(req, res, next) {
         console.error(err);
         res.status(403).json({ message: 'Token invalid' });
     }
+    console.log("TOKEN DITERIMA:", token);
+    console.log("JWT_SECRET:", process.env.JWT_SECRET);
+
 }
 
 module.exports = {

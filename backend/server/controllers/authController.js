@@ -18,12 +18,11 @@ const login = async (req, res) => {
         }
 
         // Cek Password Dengan MD5 Hash
-        const [hashedPasswordResult] = await db.query('SELECT MD5(?) AS hashedPassword', [password]);
-        const hashedPassword = hashedPasswordResult[0].hashedPassword;
-
-        if (user.password !== hashedPassword) {
-            return res.status(401).json({ message: 'Invalid password.' });
+        const [pass] = await db.query('SELECT * FROM users WHERE password = ?', [password]);
+        if (!pass) {
+            return res.status(404).json({ message: 'username or password false.' });
         }
+        
 
         // Mapping table detail berdasarkan role
         const roleTableMap = {
@@ -31,7 +30,7 @@ const login = async (req, res) => {
             province: 'provinceUsersDetail',
             city: 'cityUsersDetail',
             district: 'districtUsersDetail',
-            subdistrict: 'subdistrictUsersDetail',
+            sub_district: 'subdistrictUsersDetail',
             officerTps: 'officerTpsUserDetail',
             adminTps: 'adminTpsUserDetail',
         };
