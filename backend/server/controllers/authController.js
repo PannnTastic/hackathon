@@ -68,6 +68,8 @@ const login = async (req, res) => {
         // simpan token ke cookies
         res.cookie('token', token, {
             httpOnly: true,
+            samesite: 'lax',
+            secure: process.env.NODE_ENV === 'production', // Set to true in production
             maxAge: 24 * 60 * 60 * 500, // 5 days
         });
 

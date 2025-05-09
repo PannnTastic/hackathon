@@ -3,11 +3,20 @@ const db = require('../helper/connectionDB');
 // Create Admin
 const createAdmin = async (req, res) => {
     const { email, password, name, targetRegionId } = req.body;
-    const currentUserId = req.user.idUser; // Ambil dari token login (middleware auth)
+    const currentUserId = req.user.idUser;
     const { role } = req.query;
-    
+
+    const allowedRoles = ['province', 'city', 'district', 'sub_district', 'adminTps', 'officerTps'];
+    if (!allowedRoles.includes(role)) {
+        return res.status(400).json({ message: 'Role tidak valid' });
+    }
+    if (!email || !password || !name || !targetRegionId) {
+        return res.status(400).json({ message: 'Email, password, name, dan targetRegionId wajib diisi' });
+    }
     const connection = await db.getConnection();
     try {
+        await connection.beginTransaction();
+
         // VALIDASI wilayah dan role
         await connection.query('CALL ValidateUserAccess(?, ?, ?)', [
             currentUserId,
@@ -17,41 +26,42 @@ const createAdmin = async (req, res) => {
 
         // Lolos validasi → insert ke tabel `users`
         const [result] = await connection.query(`
-            INSERT INTO users (email, password, role)
-            VALUES (?, MD5(?), ?)`, [email, password, role]);
+            INSERT INTO users (email, name, password, role)
+            VALUES (?, ?, MD5(?), ?)`, [email, name, password, role]);
 
         const newUserId = result.insertId;
 
         // Insert ke tabel detail sesuai role
         if (role === 'province') {
             await connection.query(`
-                INSERT INTO provinceUsersDetail (idUser, name, idProvince)
-                VALUES (?, ?, ?)`, [newUserId, name, targetRegionId]);
+                INSERT INTO provinceUsersDetail (idUser, idProvince)
+                VALUES (?, ?)`, [newUserId, targetRegionId]);
         } else if (role === 'city') {
             await connection.query(`
-                INSERT INTO cityUsersDetail (idUser, name, idCity)
-                VALUES (?, ?, ?)`, [newUserId, name, targetRegionId]);
+                INSERT INTO cityUsersDetail (idUser, idCity)
+                VALUES (?, ?)`, [newUserId, targetRegionId]);
         } else if (role === 'district') {
             await connection.query(`
-                INSERT INTO districtUsersDetail (idUser, name, idDistrict)
-                VALUES (?, ?, ?)`, [newUserId, name, targetRegionId]);
+                INSERT INTO districtUsersDetail (idUser, idDistrict)
+                VALUES (?, ?)`, [newUserId, targetRegionId]);
         } else if (role === 'sub_district') {
             await connection.query(`
-                INSERT INTO subDistrictUsersDetail (idUser, name, idSubDistrict)
-                VALUES (?, ?, ?)`, [newUserId, name, targetRegionId]);
+                INSERT INTO subDistrictUsersDetail (idUser, idSubDistrict)
+                VALUES (?, ?)`, [newUserId, targetRegionId]);
         } else if (role === 'adminTps') {
             await connection.query(`
-                INSERT INTO adminTpsUserDetail (idUser, name, idTps)
-                VALUES (?, ?, ?)`, [newUserId, name, targetRegionId]);
+                INSERT INTO adminTpsUserDetail (idUser, idTps)
+                VALUES (?, ?`, [newUserId, targetRegionId]);
         } else if (role === 'officerTps') {
             await connection.query(`
-                INSERT INTO officerTpsUserDetail (idUser, name, idTps)
-                VALUES (?, ?, ?)`, [newUserId, name, targetRegionId]);
+                INSERT INTO officerTpsUserDetail (idUser, idTps)
+                VALUES (?, ?)`, [newUserId, targetRegionId]);
         }
-
+        await connection.commit();
         res.status(201).json({ message: 'User berhasil dibuat', idUser: newUserId });
     } catch (err) {
         console.error(err);
+        await connection.rollback();
         res.status(400).json({ message: err.message || 'Gagal membuat user' });
     } finally {
         connection.release();
@@ -72,37 +82,34 @@ const readAdmin = async (req, res) => {
         }
 
         let query = `
-        SELECT 
-            users.idUser, users.email, users.role,
-            COALESCE(nud.name, pud.name, cud.name, dud.name, sdud.name, atud.name, otud.name) AS name,
-            CASE 
-                WHEN users.role = 'national' THEN 'Nasional'
-                WHEN users.role = 'province' THEN pr.name
-                WHEN users.role = 'city' THEN ct.name
-                WHEN users.role = 'district' THEN dt.name
-                WHEN users.role = 'sub_district' THEN sd.name
-                WHEN users.role = 'adminTps' THEN tps.name
-                WHEN users.role = 'officerTps' THEN tps.name
-                ELSE NULL
-            END AS region_name
-        FROM users
-        LEFT JOIN nationalUsersDetail nud ON users.idUser = nud.idUser
-        LEFT JOIN provinceUsersDetail pud ON users.idUser = pud.idUser
-        LEFT JOIN cityUsersDetail cud ON users.idUser = cud.idUser
-        LEFT JOIN districtUsersDetail dud ON users.idUser = dud.idUser
-        LEFT JOIN subDistrictUsersDetail sdud ON users.idUser = sdud.idUser
-        LEFT JOIN adminTpsUserDetail atud ON users.idUser = atud.idUser
-        LEFT JOIN officerTpsUserDetail otud ON users.idUser = otud.idUser
+    SELECT 
+        users.idUser, users.email, users.role, users.name,
+        CASE 
+            WHEN users.role = 'national' THEN 'Nasional'
+            WHEN users.role = 'province' THEN pr.name
+            WHEN users.role = 'city' THEN ct.name
+            WHEN users.role = 'district' THEN dt.name
+            WHEN users.role = 'sub_district' THEN sd.name
+            WHEN users.role = 'adminTps' THEN tps.name
+            WHEN users.role = 'officerTps' THEN tps.name
+            ELSE NULL
+        END AS region_name
+    FROM users
+    LEFT JOIN provinceUsersDetail pud ON users.idUser = pud.idUser
+    LEFT JOIN cityUsersDetail cud ON users.idUser = cud.idUser
+    LEFT JOIN districtUsersDetail dud ON users.idUser = dud.idUser
+    LEFT JOIN subDistrictUsersDetail sdud ON users.idUser = sdud.idUser
+    LEFT JOIN adminTpsUserDetail atud ON users.idUser = atud.idUser
+    LEFT JOIN officerTpsUserDetail otud ON users.idUser = otud.idUser
+    -- Join ke tabel referensi nama wilayah
+    LEFT JOIN provinceData pr ON pud.idProvince = pr.idProvince
+    LEFT JOIN cityData ct ON cud.idCity = ct.idCity
+    LEFT JOIN districtData dt ON dud.idDistrict = dt.idDistrict
+    LEFT JOIN subDistrictData sd ON sdud.idSubDistrict = sd.idSubDistrict
+    LEFT JOIN tpsData tps ON atud.idTps = tps.idTps OR otud.idTps = tps.idTps
+    WHERE users.role = ?
+`;
 
-        -- Join ke tabel referensi nama wilayah
-        LEFT JOIN provinceData pr ON pud.idProvince = pr.idProvince
-        LEFT JOIN cityData ct ON cud.idCity = ct.idCity
-        LEFT JOIN districtData dt ON dud.idDistrict = dt.idDistrict
-        LEFT JOIN subDistrictData sd ON sdud.idSubDistrict = sd.idSubDistrict
-        LEFT JOIN tpsData tps ON atud.idTps = tps.idTps OR otud.idTps = tps.idTps
-        
-        WHERE users.role = ?
-        `;
 
         // Hak akses berdasarkan role user
         if (role === 'province') {
