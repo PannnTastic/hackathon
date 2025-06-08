@@ -1,4 +1,4 @@
-const db = require('../helper/connectionDB');
+const db = require('../helper/connectionDB'); // Pastikan path ini benar
 const jwt = require('jsonwebtoken');
 
 const login = async (req, res) => {
@@ -6,83 +6,39 @@ const login = async (req, res) => {
         const { email, password } = req.body;
 
         if (!email || !password) {
-            return res.status(400).json({ message: 'Email and password are required.' });
+            return res.status(400).json({ message: 'Email dan password wajib diisi.' });
         }
 
-        // Cek user dari tabel 'users'
-        const [users] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
-        const user = users[0];
-
-        if (!user) {
-            return res.status(404).json({ message: 'Email Or Password Invalid.' });
+        const query = 'CALL sp_auth_login(?, ?)';
+        const [rows] = await db.execute(query, [email, password]);
+        console.log(rows.fieldCount)
+        if (rows.fieldCount === 0) {
+            return res.status(401).json({ message: 'Email atau password salah.' });
         }
 
-        // Cek Password Dengan MD5 Hash
-        const [hashedPasswordResult] = await db.query('SELECT MD5(?) AS hashedPassword', [password]);
-        const hashedPassword = hashedPasswordResult[0].hashedPassword;
-
-        if (user.password !== hashedPassword) {
-            return res.status(404).json({ message: 'Email Or Password Invalid' });
-        }
-
-        // Mapping table detail berdasarkan role
-        const roleTableMap = {
-            national: 'nationalUsersDetail',
-            province: 'provinceUsersDetail',
-            city: 'cityUsersDetail',
-            district: 'districtUsersDetail',
-            subdistrict: 'subdistrictUsersDetail',
-            officerTps: 'officerTpsUserDetail',
-            adminTps: 'adminTpsUserDetail',
-        };
-
-        const tableName = roleTableMap[user.role];
-        if (!tableName) {
-            return res.status(400).json({ message: 'Invalid user role.' });
-        }
-
-        // Query user details berdasarkan idUser
-        const [details] = await db.query(`SELECT * FROM ?? WHERE idUser = ?`, [tableName, user.idUser]);
-        const userDetails = details[0];
-
-        if (!userDetails) {
-            return res.status(404).json({ message: 'User details not found.' });
-        }
-
-        // Membuat payload token
+        const user = rows[0][0];
         const payload = {
             idUser: user.idUser,
             email: user.email,
             role: user.role,
         };
 
-        // Menambahkan properti tambahan sesuai role
-        if (userDetails.idProvince) payload.idProvince = userDetails.idProvince;
-        if (userDetails.idCity) payload.idCity = userDetails.idCity;
-        if (userDetails.idDistrict) payload.idDistrict = userDetails.idDistrict;
-        if (userDetails.idSubdistrict) payload.idSubdistrict = userDetails.idSubdistrict;
-        if (userDetails.idTps) payload.idTps = userDetails.idTps;
-
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
-        
-        // simpan token ke cookies
         res.cookie('token', token, {
             httpOnly: true,
-            samesite: 'lax',
-            secure: process.env.NODE_ENV === 'production', // Set to true in production
-            maxAge: 24 * 60 * 60 * 500, // 5 days
+            sameSite: 'lax', // atau 'strict'
+            secure: process.env.NODE_ENV === 'production', // true jika di production
+            maxAge: 24 * 60 * 60 * 1000, // 1 hari dalam milidetik
         });
-
-        // Kirim response
         return res.status(200).json({
             status: 200,
-            message: 'Login successful.',
-            token,
+            message: 'Login berhasil.',
+            token, // Tetap kirim token di body untuk digunakan oleh mobile app
         });
 
     } catch (error) {
         console.error('Login error:', error);
-        return res.status(500).json({ message: 'Internal server error.', error: error.message });
+        return res.status(500).json({ message: 'Terjadi kesalahan pada server.', error: error.message });
     }
 };
 
