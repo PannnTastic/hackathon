@@ -35,7 +35,7 @@ exports.getAllUsers = async (req, res) => {
             idProvince || null, idCity || null, idDistrict || null, idSubDistrict || null,
             provinceName || null, cityName || null, districtName || null, subDistrictName || null
         ]);
-        res.status(200).json(rows[0]); // Hasil SP ada di indeks ke-0
+        res.status(200).json(rows[0]);
     } catch (error) {
         console.error('Error saat mengambil data pengguna:', error.message);
         res.status(500).json({ message: 'Gagal mengambil data pengguna.' });
@@ -46,11 +46,11 @@ exports.getAllUsers = async (req, res) => {
 exports.updateUser = async (req, res) => {
     const actorIdUser = req.user.idUser;
     const targetIdUser = req.params.id;
-    const { email, name, password } = req.body;
+    const { email, name, password, status } = req.body;
 
     try {
-        const query = 'CALL sp_users_update(?, ?, ?, ?, ?)';
-        await db.execute(query, [actorIdUser, targetIdUser, email || null, name || null, password || null]);
+        const query = 'CALL sp_users_update(?, ?, ?, ?, ?, ?)';
+        await db.execute(query, [actorIdUser, targetIdUser, email || null, name || null, password || null, status || null]);
         res.status(200).json({ message: 'Pengguna berhasil diperbarui.' });
     } catch (error) {
         console.error(`Error saat memperbarui pengguna ID ${targetIdUser}:`, error.message);
@@ -65,12 +65,13 @@ exports.deleteUser = async (req, res) => {
     const targetIdUser = req.params.id;
 
     try {
-        const query = 'CALL sp_users_delete(?, ?)';
+        // PERUBAHAN: Ganti nama SP yang dipanggil
+        const query = 'CALL sp_users_disable(?, ?)';
         await db.execute(query, [actorIdUser, targetIdUser]);
-        res.status(204).send(); // 204 No Content adalah respons standar untuk delete
+        res.status(204).send(); // Tetap gunakan 204, karena dari sisi API, resource 'hilang'
     } catch (error) {
-        console.error(`Error saat menghapus pengguna ID ${targetIdUser}:`, error.message);
-        const DBMesssage = error.message.split('1644: ')[1] || 'Gagal menghapus pengguna.';
+        console.error(`Error saat menonaktifkan pengguna ID ${targetIdUser}:`, error.message);
+        const DBMesssage = error.message.split('1644: ')[1] || 'Gagal menonaktifkan pengguna.';
         res.status(500).json({ message: DBMesssage });
     }
 };
