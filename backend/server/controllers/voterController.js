@@ -1,16 +1,20 @@
 const db = require('../helper/connectionDB');
+const fs = require('fs');
+const pdf = require('pdf-parse');
 
 exports.createVoter = async (req, res) => {
     const actorIdUser = req.user.idUser;
-    const { nik, name, dateOfBirth, gender, locationPhoto } = req.body;
+    
+    const { idOfficerDetail, nik, name, dateOfBirth, gender, locationPhoto } = req.body;
 
-    if (!nik || !name || !dateOfBirth || !gender) {
-        return res.status(400).json({ message: 'NIK, Nama, Tanggal Lahir, dan Gender wajib diisi.' });
+    if (!idOfficerDetail || !nik || !name || !dateOfBirth || !gender) {
+        return res.status(400).json({ message: 'ID Petugas, NIK, Nama, Tanggal Lahir, dan Gender wajib diisi.' });
     }
 
     try {
-        const query = 'CALL sp_voter_create(?, ?, ?, ?, ?, ?, @new_id, @message)';
-        await db.execute(query, [actorIdUser, nik, name, dateOfBirth, gender, locationPhoto || null]);
+        const query = 'CALL sp_voter_create(?, ?, ?, ?, ?, ?, ?, @new_id, @message)';
+        
+        await db.execute(query, [actorIdUser, idOfficerDetail, nik, name, dateOfBirth, gender, locationPhoto || null]);
         
         const [[result]] = await db.execute('SELECT @new_id AS new_id, @message AS message');
 
@@ -66,5 +70,64 @@ exports.deleteVoter = async (req, res) => {
         res.status(200).json({ message: 'Data pemilih berhasil diarsipkan.' });
     } catch (error) {
         res.status(403).json({ message: error.message });
+    }
+};
+
+exports.uploadVotersFromPdf = async (req, res) => {
+    const actorIdUser = req.user.idUser;
+    const { idOfficerDetail } = req.body;
+
+    if (!req.file) {
+        return res.status(400).json({ message: 'Tidak ada file PDF yang diunggah.' });
+    }
+    if (!idOfficerDetail) {
+        return res.status(400).json({ message: 'ID Petugas (idOfficerDetail) wajib diisi.' });
+    }
+
+    try {
+        const dataBuffer = fs.readFileSync(req.file.path);
+        const data = await pdf(dataBuffer);
+
+        const voters = [];
+        const dptRegex = /(\d{16})([A-Z\s]+)(\d{2}-\d{2}-\d{4})([LP])/g;
+        let match;
+        
+        while ((match = dptRegex.exec(data.text)) !== null) {
+            const nik = match[1];
+            const name = match[2];
+            const dob = match[3];
+            const gender = match[4];
+            
+            const [day, month, year] = dob.split('-');
+            const formattedDob = `${year}-${month}-${day}`;
+
+            voters.push({
+                nik: nik,
+                name: name.trim(),
+                dateOfBirth: formattedDob,
+                gender: gender.toUpperCase() === 'L' ? 1 : 2,
+            });
+        }
+
+        if (voters.length === 0) {
+            return res.status(400).json({ message: 'Tidak ada data pemilih valid yang ditemukan dalam PDF. Pastikan format tabel sesuai.' });
+        }
+        
+        const query = 'CALL sp_voter_bulk_create(?, ?, ?)';
+        const [rows] = await db.execute(query, [actorIdUser, idOfficerDetail, JSON.stringify(voters)]);
+
+        const insertedCount = rows[0][0].inserted_rows;
+
+        res.status(200).json({
+            message: 'Proses impor PDF selesai.',
+            total_data_in_pdf: voters.length,
+            successfully_inserted: insertedCount,
+            duplicate_or_skipped: voters.length - insertedCount
+        });
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    } finally {
+        fs.unlinkSync(req.file.path);
     }
 };

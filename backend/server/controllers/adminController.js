@@ -13,6 +13,7 @@ exports.createUser = async (req, res) => {
         await db.execute(query, [actorIdUser, email, password, name, role, assignmentId]);
         res.status(201).json({ message: 'Pengguna berhasil dibuat.' });
     } catch (error) {
+        console.error('Error saat membuat pengguna:', error);
         res.status(500).json({ message: error.message || 'Gagal membuat pengguna.' });
     }
 };
