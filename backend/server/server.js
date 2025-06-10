@@ -7,7 +7,7 @@ const application = require('./route/index');
 const app = express();
 const port = process.env.PORT || 3000;
 
-const allowedOrigins = ['https://l8nr35pw-5173.asse.devtunnels.ms'];
+const allowedOrigins = [process.env.URL_FE];
 
 const corsOptions = {
     origin: function (origin, callback) {
