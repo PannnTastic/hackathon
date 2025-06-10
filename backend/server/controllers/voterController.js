@@ -20,8 +20,7 @@ exports.createVoter = async (req, res) => {
             res.status(400).json({ message: result.message });
         }
     } catch (error) {
-        console.error('Error saat membuat data pemilih:', error.message);
-        res.status(500).json({ message: 'Terjadi kesalahan pada server.' });
+        res.status(500).json({ message: error.message });
     }
 };
 
@@ -66,7 +65,6 @@ exports.deleteVoter = async (req, res) => {
         await db.execute(query, [actorIdUser, targetIdData]);
         res.status(200).json({ message: 'Data pemilih berhasil diarsipkan.' });
     } catch (error) {
-        const DBMesssage = error.message.split('1644: ')[1] || 'Gagal mengarsipkan data pemilih.';
-        res.status(403).json({ message: DBMesssage });
+        res.status(403).json({ message: error.message });
     }
 };

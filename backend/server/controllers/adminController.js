@@ -13,8 +13,7 @@ exports.createUser = async (req, res) => {
         await db.execute(query, [actorIdUser, email, password, name, role, assignmentId]);
         res.status(201).json({ message: 'Pengguna berhasil dibuat.' });
     } catch (error) {
-        const DBMesssage = error.message.split('1644: ')[1] || 'Gagal membuat pengguna.';
-        res.status(500).json({ message: error.message || DBMesssage });
+        res.status(500).json({ message: error.message || 'Gagal membuat pengguna.' });
     }
 };
 
@@ -37,12 +36,10 @@ exports.getAllUsers = async (req, res) => {
         ]);
         res.status(200).json(rows[0]);
     } catch (error) {
-        console.error('Error saat mengambil data pengguna:', error.message);
         res.status(500).json({ message: 'Gagal mengambil data pengguna.' });
     }
 };
 
-// UPDATE - Memanggil sp_users_update
 exports.updateUser = async (req, res) => {
     const actorIdUser = req.user.idUser;
     const targetIdUser = req.params.id;
@@ -53,25 +50,19 @@ exports.updateUser = async (req, res) => {
         await db.execute(query, [actorIdUser, targetIdUser, email || null, name || null, password || null, status || null]);
         res.status(200).json({ message: 'Pengguna berhasil diperbarui.' });
     } catch (error) {
-        console.error(`Error saat memperbarui pengguna ID ${targetIdUser}:`, error.message);
-        const DBMesssage = error.message.split('1644: ')[1] || 'Gagal memperbarui pengguna.';
-        res.status(500).json({ message: DBMesssage });
+        res.status(500).json({ message: error.message || 'Gagal memperbarui pengguna.' });
     }
 };
 
-// DELETE - Memanggil sp_users_delete
 exports.deleteUser = async (req, res) => {
     const actorIdUser = req.user.idUser;
     const targetIdUser = req.params.id;
 
     try {
-        // PERUBAHAN: Ganti nama SP yang dipanggil
         const query = 'CALL sp_users_disable(?, ?)';
         await db.execute(query, [actorIdUser, targetIdUser]);
-        res.status(204).send(); // Tetap gunakan 204, karena dari sisi API, resource 'hilang'
+        res.status(204).send();
     } catch (error) {
-        console.error(`Error saat menonaktifkan pengguna ID ${targetIdUser}:`, error.message);
-        const DBMesssage = error.message.split('1644: ')[1] || 'Gagal menonaktifkan pengguna.';
-        res.status(500).json({ message: DBMesssage });
+        res.status(500).json({ message:  error.message || 'Gagal menghapus pengguna.' });
     }
 };

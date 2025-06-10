@@ -1,4 +1,4 @@
-const db = require('../helper/connectionDB'); // Pastikan path ini benar
+const db = require('../helper/connectionDB');
 const jwt = require('jsonwebtoken');
 
 const login = async (req, res) => {
@@ -26,14 +26,13 @@ const login = async (req, res) => {
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1d' });
         res.cookie('token', token, {
             httpOnly: true,
-            sameSite: 'lax', // atau 'strict'
-            secure: process.env.NODE_ENV === 'production', // true jika di production
-            maxAge: 24 * 60 * 60 * 1000, // 1 hari dalam milidetik
+            sameSite: 'lax',
+            maxAge: 24 * 60 * 60 * 1000,
         });
         return res.status(200).json({
             status: 200,
             message: 'Login berhasil.',
-            token, // Tetap kirim token di body untuk digunakan oleh mobile app
+            token,
         });
 
     } catch (error) {

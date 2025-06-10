@@ -11,7 +11,6 @@ const allowedOrigins = ['https://l8nr35pw-5173.asse.devtunnels.ms'];
 
 const corsOptions = {
     origin: function (origin, callback) {
-        console.log('CORS check. Origin:', origin);
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
@@ -29,7 +28,7 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/', application); // ganti '' menjadi '/'
+app.use('/', application);
 
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);

@@ -20,8 +20,7 @@ exports.createTps = async (req, res) => {
             res.status(400).json({ message: result.message });
         }
     } catch (error) {
-        const DBMesssage = error.message.split('1644: ')[1] || 'Gagal membuat TPS.';
-        res.status(403).json({ message: error.message || DBMesssage });
+        res.status(403).json({ message: error.message });
     }
 };
 
@@ -51,25 +50,6 @@ exports.readAllTps = async (req, res) => {
     }
 };
 
-// READ (by ID) - Memanggil sp_tps_read_by_id
-exports.readTpsById = async (req, res) => {
-    const actorIdUser = req.user.idUser;
-    const targetIdTps = req.params.id;
-
-    try {
-        const query = 'CALL sp_tps_read_by_id(?, ?)';
-        const [rows] = await db.execute(query, [actorIdUser, targetIdTps]);
-        
-        if (rows[0].length === 0) {
-            return res.status(404).json({ message: 'TPS tidak ditemukan atau Anda tidak memiliki akses.' });
-        }
-        res.status(200).json(rows[0][0]);
-    } catch (error) {
-        const DBMesssage = error.message.split('1644: ')[1] || 'Gagal mengambil data TPS.';
-        res.status(403).json({ message: DBMesssage });
-    }
-};
-
 exports.updateTps = async (req, res) => {
     const actorIdUser = req.user.idUser;
     const targetIdTps = req.params.id;
@@ -84,8 +64,7 @@ exports.updateTps = async (req, res) => {
         await db.execute(query, [actorIdUser, targetIdTps, name || null, idSubDistrict || null]);
         res.status(200).json({ message: 'TPS berhasil diperbarui.' });
     } catch (error) {
-        const DBMesssage = error.message.split('1644: ')[1] || 'Gagal memperbarui TPS.';
-        res.status(403).json({ message: DBMesssage });
+        res.status(403).json({ message: error.message });
     }
 };
 
@@ -98,7 +77,6 @@ exports.deleteTps = async (req, res) => {
         await db.execute(query, [actorIdUser, targetIdTps]);
         res.status(204).send();
     } catch (error) {
-        const DBMesssage = error.message.split('1644: ')[1] || 'Gagal mengarsipkan TPS.';
-        res.status(403).json({ message: DBMesssage });
+        res.status(403).json({ message: error.message });
     }
 };
