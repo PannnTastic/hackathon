@@ -93,40 +93,30 @@ exports.uploadVotersFromPdf = async (req, res) => {
         let match;
         
         while ((match = dptRegex.exec(data.text)) !== null) {
-            const nik = match[1];
-            const name = match[2];
-            const dob = match[3];
-            const gender = match[4];
-            
+            const [, nik, name, dob, gender] = match;
             const [day, month, year] = dob.split('-');
             const formattedDob = `${year}-${month}-${day}`;
-
             voters.push({
-                nik: nik,
-                name: name.trim(),
-                dateOfBirth: formattedDob,
+                nik: nik, name: name.trim(), dateOfBirth: formattedDob,
                 gender: gender.toUpperCase() === 'L' ? 1 : 2,
             });
         }
 
         if (voters.length === 0) {
-            return res.status(400).json({ message: 'Tidak ada data pemilih valid yang ditemukan dalam PDF. Pastikan format tabel sesuai.' });
+            return res.status(400).json({ message: 'Tidak ada data pemilih valid yang ditemukan dalam PDF.' });
         }
         
         const query = 'CALL sp_voter_bulk_create(?, ?, ?)';
         const [rows] = await db.execute(query, [actorIdUser, idOfficerDetail, JSON.stringify(voters)]);
-
         const insertedCount = rows[0][0].inserted_rows;
 
         res.status(200).json({
-            message: 'Proses impor PDF selesai.',
-            total_data_in_pdf: voters.length,
-            successfully_inserted: insertedCount,
-            duplicate_or_skipped: voters.length - insertedCount
+            message: 'Proses impor ke database sukses.',
+            successfully_inserted: insertedCount
         });
 
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        return res.status(403).json({ message: error.message });
     } finally {
         fs.unlinkSync(req.file.path);
     }
