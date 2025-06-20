@@ -8,14 +8,12 @@ exports.createTps = async (req, res) => {
         if (!name || !idSubDistrict) {
             return res.status(400).json({ message: 'Nama TPS dan ID Kelurahan wajib diisi.' });
         }
-        const query = 'CALL sp_tps_create(?, ?, ?, @new_id, @message)';
+        
+        const query = 'CALL sp_tps_create(?, ?, ?)';
         await db.execute(query, [actorIdUser, name, idSubDistrict]);
-        const [[result]] = await db.execute('SELECT @new_id AS new_id, @message AS message');
-        if (result.new_id) {
-            res.status(201).json({ id: result.new_id, message: result.message });
-        } else {
-            res.status(409).json({ message: result.message });
-        }
+        
+        res.status(201).json({ message: 'TPS berhasil dibuat atau diaktifkan kembali.' });
+
     } catch (error) {
         const { statusCode, message } = handleDbError(error);
         return res.status(statusCode).json({ message });

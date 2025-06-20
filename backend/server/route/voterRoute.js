@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer');
-const upload = multer({ dest: 'uploads/' });
 const voterController = require('../controllers/voterController');
+const upload = require('../helper/fileUploader');
 const { authenticateToken } = require('../middleware/authMiddleware');
 
 router.post('/', authenticateToken, voterController.createVoter);

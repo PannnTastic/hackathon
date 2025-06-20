@@ -21,16 +21,23 @@ exports.getAllUsers = async (req, res) => {
     try {
         const actorIdUser = req.user.idUser;
         const {
-            includeSubordinates = true, name, email, role,
-            idProvince, idCity, idDistrict, idSubDistrict,
-            provinceName, cityName, districtName, subDistrictName
+            name, email, role,
+            idProvince, idCity, idDistrict, idSubDistrict
         } = req.query;
-        const query = 'CALL sp_users_read_complex(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+        
+        const query = 'CALL sp_users_read_complex(?, ?, ?, ?, ?, ?, ?, ?)';
+        
         const [rows] = await db.execute(query, [
-            actorIdUser, includeSubordinates, name || null, email || null, role || null,
-            idProvince || null, idCity || null, idDistrict || null, idSubDistrict || null,
-            provinceName || null, cityName || null, districtName || null, subDistrictName || null
+            actorIdUser,
+            name || null,
+            email || null,
+            role || null,
+            idProvince || null,
+            idCity || null,
+            idDistrict || null,
+            idSubDistrict || null
         ]);
+        
         res.status(200).json(rows[0]);
     } catch (error) {
         const { statusCode, message } = handleDbError(error);
