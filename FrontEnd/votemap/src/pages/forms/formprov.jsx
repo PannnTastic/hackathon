@@ -1,38 +1,28 @@
+import axios from 'axios';
 import ModalShow from '../../components/modal'
 import { useEffect, useState } from "react";
+import AddData from '../../components/addData';
 
 function PageAddAdminProv() {
 
     const [dataAmdmin, setDataAdmin] = useState([])
     const [show, setShow] = useState(false);
+    const [showAdd, setShowAdd] = useState(false)
     const handleClose = () => setShow(false);
     const handleShow = () => setShow(true);
 
-    function getCookieValue(name) {
-        const value = document.cookie
-            .split("; ")
-            .find(row => row.startsWith(name + "="));
-        return value ? value.split("=")[1] : null;
-    }
-
     useEffect(() => {
-        let token = getCookieValue("token")
-        fetch("https://m9crmwsq-8000.asse.devtunnels.ms/admin", {
+        let token = window.sessionStorage.getItem("token")
+        console.log("token " + token)
+        axios.get("https://r18tprb3-8000.asse.devtunnels.ms/admin?role=province", {
             headers : {
-                Authorization : `beare ${token}`
+                Authorization : "Bearer " + token
             }
-        }).then(res => res.json())
-        .then(data => {
-            const filteredData = data
-            .filter(item => item.role === 'province')
-            .map(item => ({
-                idUser : item.idUser,
-                nama : item.name,
-                email : item.email,
-                region : item.region_name
-            }));
-        setDataAdmin(filteredData);
+        }, {})
+        .then(res => {
+        setDataAdmin(res.data)
         })
+
     }, [])
 
     return (
@@ -68,7 +58,7 @@ function PageAddAdminProv() {
                             width : '131px',
                             height : "37px",
                             fontSize : '12px'
-                        }} className='istok-web-bold mt-3'>Tambah Akun</button>
+                        }} className='istok-web-bold mt-3' onClick={() => setShowAdd(true)}>Tambah Akun</button>
             </div>
             <div className="px-4">
             <table className="table table-striped">
@@ -136,6 +126,7 @@ function PageAddAdminProv() {
             </table>
             </div>
             <ModalShow handleClose={handleClose} show={show} title="Isikan Data Admin" message="lorem ipsum dolor sit amet adalah bahasa templating" />
+            <AddData showAdd={showAdd} setShowAdd={setShowAdd} />
         </>
     )
 

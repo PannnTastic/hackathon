@@ -7,7 +7,7 @@ function StateManagement() {
     const [roles, setRoles] = useState(null) // null artinya belum tahu
 
     useEffect(() => {
-        const token = getCookieValue('token')
+        const token = window.sessionStorage.getItem("token")
         if (token) {
             try {
                 const decoded = jwtDecode(token)
@@ -20,13 +20,6 @@ function StateManagement() {
             setRoles('')
         }
     }, [])
-
-    function getCookieValue(name) {
-        const value = document.cookie
-            .split("; ")
-            .find(row => row.startsWith(name + "="));
-        return value ? value.split("=")[1] : null;
-    }
 
     function getRole(role) {
         setRoles(role)
